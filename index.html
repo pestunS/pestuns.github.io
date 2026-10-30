@@ -6,6 +6,27 @@
     <title>X</title>
 </head>
 <body>
-    <h1>hi :)</h1>
+    <p>
+Conway's game of life. 
+
+
+Introduction/definitions. 
+Show a small example of a Life board, 
+Define a configuration; transition function; representation of inputs and outputs. 
+Define running time; spatial area. 
+
+
+Some Examples + communication complexity
+Some examples such as Equality, Parity. Form a communication complexity problem, show height/time bound where height is the number of live rows. 
+
+
+This section is dedicated to showing that the problem "Is cell $c$ live at at time $t$?" is P-complete. To prove it we need to build simulations between Life and TMs. 
+
+
+The next few sections are dedicated to the inverse problem. 
+4. We define a predecessor to a configuration and prove that the problem of determining if a predecessor exists is in NP. This is not immediate, we can not directly guess a predecessor and check because the board can be infinitely large (however isolated cells far away die out).
+These sections are dedicated to showing that there exists a configuration with non computable periodic predecessors. This is different from the previous problem, the board can now infinitely many live cells repeated periodically. Even though a predecessor exists, it is not computable. 
+5. Existence: introduce tiling, SFT, coloring 
+6. Non-computability: Introduce Kolmogorov complexity</p>
 </body>
 </html>
