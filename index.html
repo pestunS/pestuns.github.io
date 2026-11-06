@@ -1,11 +1,256 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>X</title>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#f4f1e9">
+  <title>Conway’s Game of Life</title>
+  <style>
+    :root { color-scheme: light; font-family: system-ui, -apple-system, sans-serif; color: #252b28; background: #f4f1e9; }
+    * { box-sizing: border-box; }
+    body { margin: 0; }
+    main { max-width: 1180px; margin: auto; padding: 42px 28px 28px; }
+    header { display: flex; justify-content: space-between; align-items: end; gap: 24px; margin-bottom: 28px; }
+    .eyebrow { font: 11px ui-monospace, monospace; letter-spacing: .16em; text-transform: uppercase; color: #657067; }
+    h1 { font-size: clamp(30px, 5vw, 48px); letter-spacing: -.055em; font-weight: 600; margin: 8px 0; }
+    .intro { color: #657067; margin: 0; font-size: 14px; }
+    .badge { white-space: nowrap; border: 1px solid #c9cec1; border-radius: 30px; padding: 9px 14px; font: 12px ui-monospace, monospace; }
+    .workspace { display: grid; grid-template-columns: minmax(0, 1fr) 240px; border: 1px solid #c9cec1; border-radius: 16px; overflow: hidden; background: #faf8f2; }
+    .board-section { min-width: 0; background: #17231f; }
+    .board-heading { display: flex; justify-content: space-between; align-items: center; padding: 17px 20px; color: #d9e8dc; font: 11px ui-monospace, monospace; letter-spacing: .08em; }
+    .live-dot { display: inline-block; width: 6px; height: 6px; margin-right: 8px; border-radius: 50%; background: #c3ee92; }
+    .grid-scroll { overflow: auto; padding: 0 16px 16px; }
+    canvas { display: block; width: 100%; min-width: 600px; aspect-ratio: 1; background: #17231f; touch-action: none; cursor: crosshair; }
+    canvas:focus-visible { outline: 2px solid #f2ad75; outline-offset: 3px; }
+    aside { padding: 24px 20px; display: flex; flex-direction: column; gap: 26px; }
+    .stats { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .stat-label, .section-label { display: block; font: 10px ui-monospace, monospace; text-transform: uppercase; letter-spacing: .1em; color: #657067; }
+    .stat-value { display: block; margin-top: 8px; font: 27px ui-monospace, monospace; letter-spacing: -.06em; }
+    button { font: inherit; font-size: 13px; border: 1px solid #c9cec1; border-radius: 7px; background: transparent; color: #252b28; padding: 11px 10px; cursor: pointer; transition: background .15s; }
+    button:hover:not(:disabled) { background: #e7e9de; }
+    button:focus-visible, input:focus-visible { outline: 2px solid #ae4b2a; outline-offset: 3px; }
+    button:disabled { opacity: .4; cursor: not-allowed; }
+    .primary { width: 100%; background: #c4512e; border-color: #c4512e; color: white; font-weight: 600; }
+    .primary:hover:not(:disabled) { background: #ab4324; }
+    .pair { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 8px; }
+    .wide { width: 100%; margin-top: 8px; }
+    .speed-label { display: flex; justify-content: space-between; align-items: center; }
+    output { font: 12px ui-monospace, monospace; }
+    input[type="range"] { width: 100%; margin: 16px 0 4px; accent-color: #c4512e; cursor: pointer; }
+    .range-ends { display: flex; justify-content: space-between; color: #657067; font: 10px ui-monospace, monospace; }
+    .hint { color: #657067; font-size: 12px; line-height: 1.6; margin: 10px 0 0; }
+    .rule { border-top: 1px solid #d9ddd0; padding-top: 20px; margin-top: auto; }
+    .rule p { font-size: 12px; line-height: 1.7; margin: 8px 0 0; color: #657067; }
+    footer { display: flex; justify-content: space-between; gap: 16px; margin-top: 15px; font: 11px ui-monospace, monospace; color: #657067; line-height: 1.6; }
+    @media (max-width: 850px) { main { padding: 24px 16px; } .workspace { grid-template-columns: 1fr; } aside { display: grid; grid-template-columns: 1fr 1fr; } .rule { margin-top: 0; } }
+    @media (max-width: 480px) { header { align-items: start; } .badge { display: none; } aside { grid-template-columns: 1fr; gap: 20px; } footer { flex-direction: column; gap: 4px; } }
+  </style>
 </head>
 <body>
-<h1>Conway's game of life. <h1>
+  <main>
+    <header>
+      <div><div class="eyebrow">A little world, four simple rules</div><h1>Conway’s Game of Life</h1><p class="intro">Plant a pattern. Press play. See what survives.</p></div>
+      <div class="badge">100 × 100 cells</div>
+    </header>
+    <div class="workspace">
+      <section class="board-section" aria-label="Simulation grid">
+        <div class="board-heading"><span><span class="live-dot"></span>THE FIELD</span><span id="status" role="status">EDITING START</span></div>
+        <div class="grid-scroll"><canvas id="grid" width="900" height="900" tabindex="0" aria-label="100 by 100 Game of Life grid" aria-describedby="grid-help">Your browser needs canvas support to display the grid.</canvas></div>
+      </section>
+      <aside aria-label="Simulation controls">
+        <div class="stats">
+          <div><span class="stat-label">Generation</span><span class="stat-value" id="generation">0</span></div>
+          <div><span class="stat-label">Living cells</span><span class="stat-value" id="population">0</span></div>
+        </div>
+        <div>
+          <button id="play" class="primary">▶ Play</button>
+          <div class="pair"><button id="back" disabled>← Back</button><button id="step">Step →</button></div>
+          <button id="reset" class="wide">↶ Edit starting grid</button>
+        </div>
+        <div>
+          <div class="speed-label"><label for="speed" class="section-label">Playback speed</label><output id="speed-value" for="speed">10 / sec</output></div>
+          <input id="speed" type="range" min="1" max="60" value="10" aria-label="Generations per second">
+          <div class="range-ends"><span>1 / sec</span><span>60 / sec</span></div>
+        </div>
+        <div>
+          <span class="section-label">Starting configuration</span>
+          <div class="pair"><button id="random">Randomize</button><button id="clear">Clear</button></div>
+          <button id="seed" class="wide">Load glider pattern</button>
+          <p class="hint" id="grid-help">At generation 0, click or drag to paint or erase. Keyboard: focus the grid, use arrow keys to move, and Space to toggle a cell. Return to the starting grid to edit again.</p>
+        </div>
+        <div class="rule"><span class="section-label">How life works</span><p>A live cell survives with 2 or 3 neighbors. An empty cell comes alive with exactly 3. All other cells die or stay empty.</p><p>Edges are fixed; cells outside the grid are empty. Playback stops when no living cells remain.</p></div>
+      </aside>
+    </div>
+    <footer><span>10,000 cells. Endless possibilities.</span><span>Scroll the field on smaller screens to reach every cell.</span></footer>
+  </main>
+  <script>
+    'use strict';
+    const SIZE = 100;
+    const CELL = 9;
+    const canvas = document.getElementById('grid');
+    const ctx = canvas.getContext('2d');
+    const ui = Object.fromEntries(['status', 'generation', 'population', 'play', 'back', 'step', 'reset', 'speed', 'speed-value', 'random', 'clear', 'seed'].map(id => [id, document.getElementById(id)]));
+    let cells = new Uint8Array(SIZE * SIZE);
+    let history = [];
+    let generation = 0;
+    let population = 0;
+    let running = false;
+    let timer = null;
+    let stroke = null;
+    let keyboardCell = { x: 50, y: 50 };
+    let showKeyboardCell = false;
+
+    // Store one bit per cell so stepping backward retains every generation compactly.
+    function pack(board) {
+      const snapshot = new Uint8Array(Math.ceil(board.length / 8));
+      for (let i = 0; i < board.length; i++) snapshot[i >> 3] |= board[i] << (i & 7);
+      return snapshot;
+    }
+    function unpack(snapshot) {
+      return Uint8Array.from({ length: SIZE * SIZE }, (_, i) => (snapshot[i >> 3] >> (i & 7)) & 1);
+    }
+    function evolve(board) {
+      const next = new Uint8Array(board.length);
+      for (let y = 0; y < SIZE; y++) {
+        for (let x = 0; x < SIZE; x++) {
+          let neighbors = 0;
+          for (let dy = -1; dy <= 1; dy++) {
+            for (let dx = -1; dx <= 1; dx++) {
+              const nx = x + dx, ny = y + dy;
+              if ((dx || dy) && nx >= 0 && nx < SIZE && ny >= 0 && ny < SIZE) neighbors += board[ny * SIZE + nx];
+            }
+          }
+          const i = y * SIZE + x;
+          next[i] = Number(neighbors === 3 || (board[i] && neighbors === 2));
+        }
+      }
+      return next;
+    }
+    function draw() {
+      ctx.fillStyle = '#17231f';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.strokeStyle = '#28362e';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      for (let i = 0; i <= SIZE; i++) {
+        ctx.moveTo(i * CELL + .5, 0); ctx.lineTo(i * CELL + .5, canvas.height);
+        ctx.moveTo(0, i * CELL + .5); ctx.lineTo(canvas.width, i * CELL + .5);
+      }
+      ctx.stroke();
+      ctx.fillStyle = '#c3ee92';
+      for (let i = 0; i < cells.length; i++) if (cells[i]) ctx.fillRect((i % SIZE) * CELL + 1, Math.floor(i / SIZE) * CELL + 1, CELL - 1, CELL - 1);
+      if (showKeyboardCell && generation === 0 && !running) {
+        ctx.strokeStyle = '#ffb787'; ctx.lineWidth = 2;
+        ctx.strokeRect(keyboardCell.x * CELL + 1, keyboardCell.y * CELL + 1, CELL - 2, CELL - 2);
+      }
+    }
+    function render() {
+      population = cells.reduce((sum, cell) => sum + cell, 0);
+      ui.generation.textContent = generation.toLocaleString();
+      ui.population.textContent = population.toLocaleString();
+      ui.status.textContent = population === 0 ? (generation === 0 ? 'EMPTY · DRAW TO BEGIN' : 'ALL CELLS DIED') : running ? 'RUNNING' : generation === 0 ? 'EDITING START' : 'PAUSED';
+      ui.play.textContent = running ? 'Ⅱ Pause' : '▶ Play';
+      ui.play.disabled = population === 0;
+      ui.back.disabled = generation === 0;
+      ui.step.disabled = population === 0;
+      for (const id of ['random', 'clear', 'seed']) ui[id].disabled = generation !== 0 || running;
+      canvas.style.cursor = generation === 0 && !running ? 'crosshair' : 'default';
+      draw();
+    }
+    function pause() {
+      running = false;
+      clearTimeout(timer);
+      timer = null;
+    }
+    function forward() {
+      if (population === 0) return;
+      if (generation + 1 < history.length) cells = unpack(history[generation + 1]);
+      else { cells = evolve(cells); history.push(pack(cells)); }
+      generation++;
+      if (!cells.some(Boolean)) pause();
+      render();
+    }
+    function schedule() {
+      clearTimeout(timer);
+      if (running) timer = setTimeout(() => { forward(); schedule(); }, 1000 / Number(ui.speed.value));
+    }
+    function saveStart() {
+      history = [pack(cells)];
+      render();
+    }
+    function loadSeed() {
+      cells.fill(0);
+      const glider = [[1, 0], [2, 1], [0, 2], [1, 2], [2, 2]];
+      for (const [ox, oy] of [[24, 24], [45, 40], [64, 60]]) {
+        for (const [x, y] of glider) cells[(oy + y) * SIZE + ox + x] = 1;
+      }
+      saveStart();
+    }
+    ui.play.addEventListener('click', () => {
+      stroke = null;
+      if (running) pause();
+      else if (population > 0) { running = true; schedule(); }
+      render();
+    });
+    ui.step.addEventListener('click', () => { stroke = null; pause(); forward(); });
+    ui.back.addEventListener('click', () => {
+      stroke = null; pause();
+      if (generation > 0) cells = unpack(history[--generation]);
+      render();
+    });
+    ui.reset.addEventListener('click', () => {
+      stroke = null; pause(); generation = 0; cells = unpack(history[0]); saveStart();
+    });
+    ui.speed.addEventListener('input', () => {
+      ui['speed-value'].textContent = `${ui.speed.value} / sec`;
+      schedule();
+    });
+    ui.clear.addEventListener('click', () => { cells.fill(0); saveStart(); });
+    ui.random.addEventListener('click', () => { cells = Uint8Array.from(cells, () => Number(Math.random() < .2)); saveStart(); });
+    ui.seed.addEventListener('click', loadSeed);
+
+    function position(event) {
+      const rect = canvas.getBoundingClientRect();
+      return { x: Math.max(0, Math.min(SIZE - 1, Math.floor((event.clientX - rect.left) / rect.width * SIZE))), y: Math.max(0, Math.min(SIZE - 1, Math.floor((event.clientY - rect.top) / rect.height * SIZE))) };
+    }
+    function paintTo(point) {
+      // Interpolate fast pointer movements so strokes have no gaps.
+      const dx = point.x - stroke.x, dy = point.y - stroke.y;
+      const steps = Math.max(Math.abs(dx), Math.abs(dy), 1);
+      for (let i = 0; i <= steps; i++) {
+        const x = Math.round(stroke.x + dx * i / steps), y = Math.round(stroke.y + dy * i / steps);
+        cells[y * SIZE + x] = stroke.value;
+      }
+      stroke.x = point.x; stroke.y = point.y;
+      saveStart();
+    }
+    canvas.addEventListener('pointerdown', event => {
+      if (generation !== 0 || running || event.button !== 0 || stroke) return;
+      event.preventDefault(); canvas.focus({ preventScroll: true }); showKeyboardCell = false;
+      const point = position(event);
+      stroke = { ...point, value: 1 - cells[point.y * SIZE + point.x], pointerId: event.pointerId };
+      canvas.setPointerCapture(event.pointerId);
+      paintTo(point);
+    });
+    canvas.addEventListener('pointermove', event => {
+      if (stroke && stroke.pointerId === event.pointerId && generation === 0 && !running) paintTo(position(event));
+    });
+    for (const type of ['pointerup', 'pointercancel', 'lostpointercapture']) canvas.addEventListener(type, event => {
+      if (stroke?.pointerId === event.pointerId) stroke = null;
+    });
+    canvas.addEventListener('keydown', event => {
+      if (generation !== 0 || running || !['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', ' '].includes(event.key)) return;
+      event.preventDefault(); showKeyboardCell = true;
+      if (event.key === 'ArrowLeft') keyboardCell.x = Math.max(0, keyboardCell.x - 1);
+      if (event.key === 'ArrowRight') keyboardCell.x = Math.min(SIZE - 1, keyboardCell.x + 1);
+      if (event.key === 'ArrowUp') keyboardCell.y = Math.max(0, keyboardCell.y - 1);
+      if (event.key === 'ArrowDown') keyboardCell.y = Math.min(SIZE - 1, keyboardCell.y + 1);
+      if (event.key === ' ') { const i = keyboardCell.y * SIZE + keyboardCell.x; cells[i] = 1 - cells[i]; saveStart(); }
+      canvas.setAttribute('aria-label', `100 by 100 Game of Life grid. Row ${keyboardCell.y + 1}, column ${keyboardCell.x + 1}, ${cells[keyboardCell.y * SIZE + keyboardCell.x] ? 'alive' : 'empty'}`);
+      draw();
+    });
+    canvas.addEventListener('blur', () => { showKeyboardCell = false; draw(); });
+    loadSeed();
+  </script>
 </body>
 </html>
