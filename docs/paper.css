@@ -1,0 +1,218 @@
+/* The manuscript uses the Sage layout and its existing typography. */
+.paper-outline, .on-page {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.paper-outline a {
+  display: block;
+  padding: .4rem .66rem;
+  border-left: 2px solid transparent;
+  color: #37453c;
+  font: 430 .93rem/1.42 var(--sans);
+}
+.paper-outline > li > a {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  column-gap: .28em;
+}
+.paper-outline [aria-current="page"] {
+  border-color: var(--head);
+  color: var(--head);
+  font-weight: 610;
+}
+.paper-outline .on-page a {
+  padding: .27rem .65rem .27rem 1.35rem;
+  color: var(--link);
+  font-size: .875rem;
+}
+.paper-outline .on-page .on-page a {padding-left: 2rem}
+.on-page a[aria-current="location"] {text-decoration: underline; text-underline-offset: .2em}
+.outline-label {
+  margin: 1.15rem .65rem .36rem;
+  color: var(--secondary);
+  font: 530 .875rem/1.4 var(--sans);
+}
+.paper-reader .chapter-heading {margin-bottom: 1.5rem}
+.paper-reader .chapter-heading p span {padding-inline: .18rem}
+.paper-reader .chapter [id] {scroll-margin-top: calc(var(--bar) + 1.2rem)}
+.paper-reader .chapter p {margin: 0 0 .85rem}
+.paper-reader .chapter ol {list-style: decimal; padding-inline-start: 1.4em}
+.paper-reader .chapter-heading p {margin: 0 0 .27rem}
+.paper-reader .reading-guide {
+  margin: 0 0 1.65rem;
+  border-bottom: 1px solid var(--rule);
+  padding-bottom: .65rem;
+}
+.reading-guide summary {
+  width: fit-content;
+  color: var(--link);
+  font: 450 .89rem/1.5 var(--sans);
+}
+.paper-reader .reading-guide p {margin: .65rem 0 .4rem}
+.paper-reader .chapter .proof-section {margin: 0 0 1.85rem}
+.paper-reader .chapter .proof-section > h2 {
+  margin: 1.45rem 0 .95rem;
+  color: var(--head);
+}
+.paper-reader .chapter :is(h2, h3, h4):is(.result-title, .unnumbered) {
+  font: 560 1.13rem/1.45 var(--sans);
+  letter-spacing: -.016em;
+  color: #2e4035;
+  margin: 1.35rem 0 .45rem;
+}
+.paper-reader .chapter .proof-section > h3.unnumbered {
+  font-size: 1.3rem;
+  margin: 1.9rem 0 .7rem;
+}
+.paper-reader .chapter :is(.theorem, .bdhrestatement, .definition, .lemma, .corollary, .proposition) {
+  margin-block: 1.25rem;
+  padding: .85rem clamp(.75rem, 2vw, 1.2rem);
+  border: 1px solid var(--title-stroke);
+  break-inside: avoid;
+}
+.paper-reader .chapter :is(.theorem, .bdhrestatement, .definition, .lemma, .corollary, .proposition) > .result-title {
+  margin-top: 0;
+}
+.paper-reader .chapter :is(.theorem, .bdhrestatement, .definition, .lemma, .corollary, .proposition) > :last-child {
+  margin-bottom: 0;
+}
+.result-number {
+  display: inline;
+  margin-right: .32em;
+  font-size: .86em;
+  font-weight: 520;
+  color: var(--head);
+  white-space: nowrap;
+}
+.paper-reader .chapter p a, .result-title a, .footnotes a {
+  text-decoration: underline;
+  text-decoration-color: #9eb3a5;
+  text-underline-offset: .16em;
+}
+.paper-reader .chapter a:hover {text-decoration-color: currentColor}
+.paper-reader .chapter .footnote-ref {
+  text-decoration: none;
+  font: 550 .85em var(--sans);
+}
+.paper-reader .math-scroll {
+  max-width: 100%;
+  overflow-x: auto;
+  overflow-y: hidden;
+  margin: .8rem 0 .95rem;
+  padding: .25rem .05rem .42rem;
+  scrollbar-width: thin;
+}
+.equation-sequence {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: .38rem 1.8rem;
+  margin: .8rem 0 .95rem;
+}
+.paper-reader .equation-sequence > .math-scroll {
+  width: max-content;
+  max-width: 100%;
+  margin: 0;
+}
+.math-scroll math[display="block"] {
+  width: max-content;
+  max-width: none;
+  margin-inline: auto;
+  font-size: 1.12em;
+}
+.paper-reader .formula-reference {
+  display: block;
+  width: max-content;
+  min-width: 100%;
+  text-decoration: none;
+  color: var(--ink);
+}
+.formula-reference mtext {color: var(--link); text-decoration: underline; text-underline-offset: .15em}
+.paper-reader .math-scroll:focus-visible, .inline-scroll:focus-visible {
+  outline: 2px solid var(--head);
+  outline-offset: 2px;
+}
+.inline-scroll {
+  display: inline-block;
+  vertical-align: middle;
+  max-width: 100%;
+  overflow-x: auto;
+  scrollbar-width: thin;
+}
+.paper-reader .chapter .footnotes {
+  font-size: .93em;
+  margin: 1.4rem 0 0;
+}
+.footnotes hr {border: 0; border-top: 1px solid var(--rule); margin: 0 0 .9rem}
+.paper-footer {
+  margin: 1.6rem 0 .2rem;
+  border-top: 1px solid var(--rule);
+  padding: .85rem 0 0;
+  font: 450 .9rem/1.5 var(--sans);
+}
+.paper-reader .original-proof {font-size: .94em}
+
+.paper-reader .chapter figure {
+  width: min(100%, 38rem);
+  margin: 1.35rem auto 1.5rem;
+  break-inside: avoid;
+}
+.paper-reader .chapter figure > p {
+  display: grid;
+  grid-auto-columns: minmax(0, 1fr);
+  grid-auto-flow: column;
+  align-items: center;
+  gap: .8rem;
+  margin: 0;
+}
+.paper-reader figure img {
+  display: block;
+  width: 100%;
+  height: auto;
+  margin-inline: auto;
+}
+.paper-reader [id="fig:hermite-samples"] img {max-width: 31rem}
+.paper-reader [id="fig:subset-state"] img {max-width: 10rem}
+.paper-reader .chapter [id="fig:bucket-support"] {width: min(100%, 32rem)}
+.paper-reader .chapter [id="fig:weighted-matching"],
+.paper-reader .chapter [id="fig:pair-routing"] {width: min(100%, 43rem)}
+.paper-reader .chapter [id="fig:parity-layers"] > p {
+  grid-template-columns: 146fr 200fr;
+}
+.paper-reader figcaption {
+  margin-top: .6rem;
+  padding-top: .45rem;
+  border-top: 1px solid var(--rule);
+  color: #495c4e;
+  font: 430 .875rem/1.5 var(--sans);
+}
+@media (max-width: 540px) {
+  .paper-reader .chapter figure > p {
+    grid-auto-flow: row;
+    justify-items: center;
+  }
+  .paper-reader .chapter [id="fig:parity-layers"] > p {grid-template-columns: 1fr}
+  .paper-reader [id="fig:parity-layers"] img:first-child {max-width: 14rem}
+  .paper-reader [id="fig:parity-layers"] img:last-child {max-width: 19rem}
+  .paper-reader [id="fig:weighted-matching"] img,
+  .paper-reader [id="fig:pair-routing"] img {max-width: 21rem}
+  .paper-reader [id="fig:bucket-support"] img {max-width: 15.5rem}
+  .paper-reader .chapter [id="fig:cube-support"] > p {grid-template-columns: repeat(2, minmax(0, 1fr))}
+}
+@media (max-width: 770px) {
+  .paper-reader .contents-menu .menu-panel {right: var(--gutter)}
+  .paper-reader .chapter-heading {margin-bottom: 1.2rem}
+}
+@media (max-width: 480px) {
+  .paper-reader .chapter :is(h2, h3, h4):is(.result-title, .unnumbered) {font-size: 1.04rem}
+  .math-scroll math[display="block"] {font-size: 1em}
+  .paper-reader .chapter p {overflow-x: auto; scrollbar-width: thin}
+  .paper-reader .chapter-heading p {overflow: visible}
+}
+@media print {
+  .paper-reader .paper-footer {display: none}
+  .paper-reader .math-scroll {overflow: visible}
+  .paper-reader .chapter :is(h2, h3, h4).result-title {break-after: avoid}
+}

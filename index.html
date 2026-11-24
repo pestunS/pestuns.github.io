@@ -19,8 +19,12 @@
     .board-section { min-width: 0; background: #17231f; }
     .board-heading { display: flex; justify-content: space-between; align-items: center; padding: 17px 20px; color: #d9e8dc; font: 11px ui-monospace, monospace; letter-spacing: .08em; }
     .live-dot { display: inline-block; width: 6px; height: 6px; margin-right: 8px; border-radius: 50%; background: #c3ee92; }
-    .grid-scroll { overflow: auto; padding: 0 16px 16px; }
-    canvas { display: block; width: 100%; min-width: 600px; aspect-ratio: 1; background: #17231f; touch-action: none; cursor: crosshair; }
+    .grid-scroll { padding: 0 16px 16px; }
+    canvas { display: block; width: 100%; aspect-ratio: 1; background: #17231f; touch-action: none; cursor: crosshair; }
+    .view-tools { display: flex; flex-wrap: wrap; align-items: center; gap: 5px; padding: 0 16px 16px; color: #dee8dc; }
+    .view-tools button { border-color: #5c6d61; color: inherit; padding: 6px 9px; }
+    .view-tools button:hover:not(:disabled), .view-tools button[aria-pressed="true"] { background: #35493b; }
+    #view-coords { flex-basis: 100%; margin-top: 4px; font: 11px ui-monospace, monospace; }
     canvas:focus-visible { outline: 2px solid #f2ad75; outline-offset: 3px; }
     aside { padding: 24px 20px; display: flex; flex-direction: column; gap: 26px; }
     .stats { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
@@ -36,6 +40,17 @@
     .wide { width: 100%; margin-top: 8px; }
     .speed-label { display: flex; justify-content: space-between; align-items: center; }
     output { font: 12px ui-monospace, monospace; }
+    .trace { border-block: 1px solid #d9ddd0; padding-block: 14px; }
+    .trace h2 { font-size: 17px; margin: 4px 0; }
+    .trace table { width: 100%; border-collapse: collapse; font: 12px ui-monospace, monospace; font-variant-numeric: tabular-nums; margin-top: 12px; text-align: center; }
+    .trace td, .trace th { padding: 5px 3px; border-bottom: 1px solid #e1e3d9; }
+    .trace th { color: #526055; }
+    .trace td[data-bit="1"] { background: #dcebc9; color: #244725; font-weight: bold; }
+    .trace td[data-bit="0"] { color: #455341; background: #eeeee7; }
+    .trace summary { cursor: pointer; margin-top: 12px; font-size: 13px; }
+    .trace input { font: 13px ui-monospace, monospace; width: 100%; border: 1px solid #c9cec1; border-radius: 4px; padding: 6px; }
+    .trace label { font-size: 12px; }
+    #circuit-status { display: block; line-height: 1.5; margin-top: 8px; }
     input[type="range"] { width: 100%; margin: 16px 0 4px; accent-color: #c4512e; cursor: pointer; }
     .range-ends { display: flex; justify-content: space-between; color: #657067; font: 10px ui-monospace, monospace; }
     .hint { color: #657067; font-size: 12px; line-height: 1.6; margin: 10px 0 0; }
@@ -50,12 +65,18 @@
   <main>
     <header>
       <div><div class="eyebrow">A little world, four simple rules</div><h1>Conway’s Game of Life</h1><p class="intro">Plant a pattern. Press play. See what survives.</p></div>
-      <div class="badge">100 × 100 cells</div>
+      <div class="badge">100 × 100 viewport</div>
     </header>
     <div class="workspace">
       <section class="board-section" aria-label="Simulation grid">
         <div class="board-heading"><span><span class="live-dot"></span>THE FIELD</span><span id="status" role="status">EDITING START</span></div>
         <div class="grid-scroll"><canvas id="grid" width="900" height="900" tabindex="0" aria-label="100 by 100 Game of Life grid" aria-describedby="grid-help">Your browser needs canvas support to display the grid.</canvas></div>
+        <div class="view-tools" role="group" aria-label="Viewport navigation">
+          <button id="pan-mode" aria-pressed="false">Pan mode</button>
+          <button id="view-left" aria-label="Pan left">←</button><button id="view-up" aria-label="Pan up">↑</button>
+          <button id="view-down" aria-label="Pan down">↓</button><button id="view-right" aria-label="Pan right">→</button>
+          <button id="view-home">Home view</button><span id="view-coords"></span>
+        </div>
       </section>
       <aside aria-label="Simulation controls">
         <div class="stats">
@@ -73,58 +94,146 @@
           <div class="range-ends"><span>1 / sec</span><span>60 / sec</span></div>
         </div>
         <div>
+          <div class="trace">
+            <span class="section-label">Clocked circuit</span>
+            <h2>EQ → NOT</h2>
+            <p class="hint">A pulse is 1; an empty clock slot is 0. EQ’s output glider continues down the same lane into NOT.</p>
+            <table aria-label="Four clock slots: input bits and observed output bits">
+              <thead><tr><th>Slot</th><th>A</th><th>B</th><th>EQ</th><th>NOT</th></tr></thead>
+              <tbody id="trace-rows"></tbody>
+            </table>
+            <output id="circuit-status" aria-live="polite"></output>
+            <button id="next-slot" class="wide">Advance to next result →</button>
+            <details><summary>How the gates work</summary>
+              <p class="hint">A = 1 sends a glider; B = 1 sends a lightweight spaceship. Either alone knocks out an EQ clock pulse. With both present, the inputs collide with each other and the pulse gets through. With neither present, it passes freely.</p>
+              <p class="hint">At NOT, any surviving EQ pulse collides with a second clock pulse. If EQ was empty, that clock pulse continues to the blue NOT port.</p>
+            </details>
+            <details><summary>Input streams</summary>
+              <form id="circuit-form">
+                <div class="pair">
+                  <label>A <input id="stream-a" value="0011" required pattern="[01]{4}" maxlength="4" title="Four bits, each 0 or 1" spellcheck="false"></label>
+                  <label>B <input id="stream-b" value="0101" required pattern="[01]{4}" maxlength="4" title="Four bits, each 0 or 1" spellcheck="false"></label>
+                </div>
+                <button type="submit" class="wide">Load pulse trains</button>
+              </form>
+            </details>
+            <button id="load-circuit" class="wide">Load all four pairs</button>
+            <p class="hint" id="circuit-timing"></p>
+          </div>
+        </div>
+        <div>
           <span class="section-label">Starting configuration</span>
           <div class="pair"><button id="random">Randomize</button><button id="clear">Clear</button></div>
           <button id="seed" class="wide">Load glider pattern</button>
-          <p class="hint" id="grid-help">At generation 0, click or drag to paint or erase. Keyboard: focus the grid, use arrow keys to move, and Space to toggle a cell. Return to the starting grid to edit again.</p>
+          <p class="hint" id="grid-help">At generation 0, click or drag to paint or erase. Focus the grid and use arrows and Space to edit by keyboard. Shift-drag or use Pan mode to move the viewport.</p>
         </div>
-        <div class="rule"><span class="section-label">How life works</span><p>A live cell survives with 2 or 3 neighbors. An empty cell comes alive with exactly 3. All other cells die or stay empty.</p><p>Edges are fixed; cells outside the grid are empty. Playback stops when no living cells remain.</p></div>
+        <div class="rule"><span class="section-label">How life works</span><p>A live cell survives with 2 or 3 neighbors. An empty cell comes alive with exactly 3. All other cells die or stay empty.</p><p>Life continues outside the viewport. Playback stops when no living cells remain anywhere in the world.</p></div>
       </aside>
     </div>
-    <footer><span>10,000 cells. Endless possibilities.</span><span>Scroll the field on smaller screens to reach every cell.</span></footer>
+    <footer><span>100 × 100 visible cells</span><span>Pan to follow signals beyond the frame.</span></footer>
   </main>
-  <script>
+  <script id="life-core">
     'use strict';
-    const SIZE = 100;
-    const CELL = 9;
-    const canvas = document.getElementById('grid');
-    const ctx = canvas.getContext('2d');
-    const ui = Object.fromEntries(['status', 'generation', 'population', 'play', 'back', 'step', 'reset', 'speed', 'speed-value', 'random', 'clear', 'seed'].map(id => [id, document.getElementById(id)]));
-    let cells = new Uint8Array(SIZE * SIZE);
-    let history = [];
-    let generation = 0;
-    let population = 0;
-    let running = false;
-    let timer = null;
-    let stroke = null;
-    let keyboardCell = { x: 50, y: 50 };
-    let showKeyboardCell = false;
-
-    // Store one bit per cell so stepping backward retains every generation compactly.
-    function pack(board) {
-      const snapshot = new Uint8Array(Math.ceil(board.length / 8));
-      for (let i = 0; i < board.length; i++) snapshot[i >> 3] |= board[i] << (i & 7);
-      return snapshot;
-    }
-    function unpack(snapshot) {
-      return Uint8Array.from({ length: SIZE * SIZE }, (_, i) => (snapshot[i >> 3] >> (i & 7)) & 1);
-    }
+    const cellKey = (x, y) => x + ',' + y;
     function evolve(board) {
-      const next = new Uint8Array(board.length);
-      for (let y = 0; y < SIZE; y++) {
-        for (let x = 0; x < SIZE; x++) {
-          let neighbors = 0;
-          for (let dy = -1; dy <= 1; dy++) {
-            for (let dx = -1; dx <= 1; dx++) {
-              const nx = x + dx, ny = y + dy;
-              if ((dx || dy) && nx >= 0 && nx < SIZE && ny >= 0 && ny < SIZE) neighbors += board[ny * SIZE + nx];
-            }
+      const counts = new Map();
+      for (const key of board) {
+        const [x, y] = key.split(',').map(Number);
+        for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+          if (dx || dy) {
+            const neighbor = cellKey(x + dx, y + dy);
+            counts.set(neighbor, (counts.get(neighbor) || 0) + 1);
           }
-          const i = y * SIZE + x;
-          next[i] = Number(neighbors === 3 || (board[i] && neighbors === 2));
         }
       }
+      const next = new Set();
+      for (const [key, n] of counts) if (n === 3 || (n === 2 && board.has(key))) next.add(key);
       return next;
+    }
+  </script>
+  <script id="clocked-eq">
+    // A lane specifies the carrier at slot 0 and its displacement per four Life
+    // generations. Later slots start farther upstream, all at generation zero.
+    const eqCircuit = (() => {
+      const period = 64;
+      const glider = [[0, -1], [1, 0], [-1, 1], [0, 1], [1, 1]];
+      const lwss = [[-1, -1], [2, -1], [-2, 0], [-2, 1], [2, 1],
+                    [-2, 2], [-1, 2], [0, 2], [1, 2]];
+      const shift = 30;
+      function lane(x, y, vx, vy, shape) {
+        return { x: x + shift, y: y + shift, vx, vy, shape };
+      }
+      const sw = glider.map(([x, y]) => [-x, y]);
+      const a = lane(12, 1, -1, 1, sw);
+      const b = lane(18, 2, -2, 0, lwss);
+      const eqClock = lane(0, 0, 1, 1, glider);
+      const notClock = lane(40, 1, -1, 1, sw);
+      function pose(lane, t) {
+        return lane.shape.map(([x, y]) =>
+          [lane.x + x + lane.vx * t / 4, lane.y + y + lane.vy * t / 4]);
+      }
+      function port(lane, tick) {
+        const cells = pose(lane, tick);
+        const xs = cells.map(p => p[0]), ys = cells.map(p => p[1]);
+        const x = Math.min(...xs), y = Math.min(...ys);
+        return { tick, cells, x, y, width: Math.max(...xs) - x + 1, height: Math.max(...ys) - y + 1 };
+      }
+      const ports = { a: port(a, 0), b: port(b, 0),
+                      eq: port(eqClock, 60), not: port(notClock, 104) };
+      function seed(aBits, bBits, put) {
+        for (let i = 0; i < aBits.length; i++) {
+          for (const [lane, present] of [[a, aBits[i] === '1'], [b, bBits[i] === '1'],
+                                         [eqClock, true], [notClock, true]]) {
+            if (present) for (const [x, y] of pose(lane, -i * period)) put(x, y);
+          }
+        }
+      }
+      // A malformed pulse is neither 0 nor 1. Sample its entire footprint so
+      // debris cannot accidentally count as a valid glider or spaceship.
+      function read(name, board) {
+        const p = ports[name];
+        let count = 0;
+        for (let y = p.y; y < p.y + p.height; y++)
+          for (let x = p.x; x < p.x + p.width; x++)
+            if (board.has(cellKey(x, y))) count++;
+        if (!count) return 0;
+        return count === p.cells.length && p.cells.every(([x, y]) => board.has(cellKey(x, y))) ? 1 : '?';
+      }
+      function guide(lane, to) {
+        const center = t => [lane.x + lane.vx * t / 4, lane.y + lane.vy * t / 4];
+        return [...center(-3 * period), ...center(to)];
+      }
+      const guides = [guide(a, 24), guide(b, 36), guide(eqClock, 80), guide(notClock, 120)];
+      return { period, ports, seed, read, guides, view: { x: 0, y: 0 } };
+    })();
+  </script>
+  <script>
+    'use strict';
+    const SIZE = 100, CELL = 9; // Viewport dimensions; never simulation boundaries.
+    const canvas = document.getElementById('grid');
+    const ctx = canvas.getContext('2d');
+    const ui = Object.fromEntries(['status', 'generation', 'population', 'play', 'back', 'step', 'reset', 'speed', 'speed-value', 'random', 'clear', 'seed', 'pan-mode', 'view-coords'].map(id => [id, document.getElementById(id)]));
+    let cells = new Set(), generation = 0, running = false, timer = null;
+    let cameraX = 0, cameraY = 0, homeX = 0, homeY = 0;
+    let panMode = false, stroke = null, keyboardCell = { x: 50, y: 50 }, showKeyboardCell = false;
+
+    // Boards are immutable between generations. Keep periodic checkpoints plus a
+    // short cache: Back can always replay from a checkpoint without retaining every frame.
+    const PERIOD = 32, checkpoints = new Map(), recent = new Map();
+    function remember(t, board) {
+      if (t % PERIOD === 0) checkpoints.set(t, board);
+      recent.set(t, board);
+      if (recent.size > PERIOD + 1) recent.delete(recent.keys().next().value);
+    }
+    function boardAt(t) {
+      if (recent.has(t)) return recent.get(t);
+      const base = t - t % PERIOD;
+      let board = checkpoints.get(base);
+      for (let i = base + 1; i <= t; i++) {
+        board = evolve(board);
+        remember(i, board);
+      }
+      return board;
     }
     function draw() {
       ctx.fillStyle = '#17231f';
@@ -133,28 +242,39 @@
       ctx.lineWidth = 1;
       ctx.beginPath();
       for (let i = 0; i <= SIZE; i++) {
-        ctx.moveTo(i * CELL + .5, 0); ctx.lineTo(i * CELL + .5, canvas.height);
-        ctx.moveTo(0, i * CELL + .5); ctx.lineTo(canvas.width, i * CELL + .5);
+        const pos = i * CELL + .5;
+        ctx.moveTo(pos, 0); ctx.lineTo(pos, canvas.height);
+        ctx.moveTo(0, pos); ctx.lineTo(canvas.width, pos);
       }
       ctx.stroke();
       ctx.fillStyle = '#c3ee92';
-      for (let i = 0; i < cells.length; i++) if (cells[i]) ctx.fillRect((i % SIZE) * CELL + 1, Math.floor(i / SIZE) * CELL + 1, CELL - 1, CELL - 1);
-      if (showKeyboardCell && generation === 0 && !running) {
-        ctx.strokeStyle = '#ffb787'; ctx.lineWidth = 2;
-        ctx.strokeRect(keyboardCell.x * CELL + 1, keyboardCell.y * CELL + 1, CELL - 2, CELL - 2);
+      for (const key of cells) {
+        const [x, y] = key.split(',').map(Number);
+        const vx = x - cameraX, vy = y - cameraY;
+        if (vx >= 0 && vx < SIZE && vy >= 0 && vy < SIZE) {
+          ctx.fillRect(vx * CELL + 1, vy * CELL + 1, CELL - 1, CELL - 1);
+        }
       }
+      ctx.save();
+      drawCircuitOverlay(ctx, cameraX, cameraY, CELL);
+      ctx.restore();
+      if (showKeyboardCell && generation === 0 && !running && !panMode) {
+        ctx.strokeStyle = '#ffb787'; ctx.lineWidth = 2;
+        ctx.strokeRect((keyboardCell.x - cameraX) * CELL + 1, (keyboardCell.y - cameraY) * CELL + 1, CELL - 2, CELL - 2);
+      }
+      ui['view-coords'].textContent = 'x: ' + cameraX + ' … ' + (cameraX + SIZE - 1) + '   ·   y: ' + cameraY + ' … ' + (cameraY + SIZE - 1);
     }
     function render() {
-      population = cells.reduce((sum, cell) => sum + cell, 0);
       ui.generation.textContent = generation.toLocaleString();
-      ui.population.textContent = population.toLocaleString();
-      ui.status.textContent = population === 0 ? (generation === 0 ? 'EMPTY · DRAW TO BEGIN' : 'ALL CELLS DIED') : running ? 'RUNNING' : generation === 0 ? 'EDITING START' : 'PAUSED';
+      ui.population.textContent = cells.size.toLocaleString();
+      ui.status.textContent = !cells.size ? (generation === 0 ? 'EMPTY · DRAW TO BEGIN' : 'ALL CELLS DIED') : running ? 'RUNNING' : generation === 0 ? 'EDITING START' : 'PAUSED';
       ui.play.textContent = running ? 'Ⅱ Pause' : '▶ Play';
-      ui.play.disabled = population === 0;
+      ui.play.disabled = !cells.size;
       ui.back.disabled = generation === 0;
-      ui.step.disabled = population === 0;
+      ui.step.disabled = !cells.size;
       for (const id of ['random', 'clear', 'seed']) ui[id].disabled = generation !== 0 || running;
-      canvas.style.cursor = generation === 0 && !running ? 'crosshair' : 'default';
+      canvas.style.cursor = generation === 0 && !running && !panMode ? 'crosshair' : 'grab';
+      updateCircuitUI();
       draw();
     }
     function pause() {
@@ -162,95 +282,249 @@
       clearTimeout(timer);
       timer = null;
     }
-    function forward() {
-      if (population === 0) return;
-      if (generation + 1 < history.length) cells = unpack(history[generation + 1]);
-      else { cells = evolve(cells); history.push(pack(cells)); }
-      generation++;
-      if (!cells.some(Boolean)) pause();
-      render();
+    function forward(redraw = true) {
+      if (!cells.size) return;
+      const next = generation + 1;
+      cells = recent.get(next) || checkpoints.get(next) || evolve(cells);
+      generation = next;
+      remember(next, cells);
+      recordCircuitTick();
+      if (!cells.size) pause();
+      if (redraw) render();
     }
     function schedule() {
       clearTimeout(timer);
       if (running) timer = setTimeout(() => { forward(); schedule(); }, 1000 / Number(ui.speed.value));
     }
-    function saveStart() {
-      history = [pack(cells)];
+    function saveStart(keepCircuit = false) {
+      pause();
+      generation = 0;
+      if (!keepCircuit) onCustomStart();
+      checkpoints.clear(); recent.clear();
+      remember(0, new Set(cells));
+      homeX = cameraX; homeY = cameraY;
       render();
     }
     function loadSeed() {
-      cells.fill(0);
-      const glider = [[1, 0], [2, 1], [0, 2], [1, 2], [2, 2]];
+      cells = new Set();
       for (const [ox, oy] of [[24, 24], [45, 40], [64, 60]]) {
-        for (const [x, y] of glider) cells[(oy + y) * SIZE + ox + x] = 1;
+        for (const [x, y] of [[1, 0], [2, 1], [0, 2], [1, 2], [2, 2]]) cells.add(cellKey(cameraX + ox + x, cameraY + oy + y));
       }
       saveStart();
     }
     ui.play.addEventListener('click', () => {
       stroke = null;
       if (running) pause();
-      else if (population > 0) { running = true; schedule(); }
+      else if (cells.size) { running = true; schedule(); }
       render();
     });
     ui.step.addEventListener('click', () => { stroke = null; pause(); forward(); });
     ui.back.addEventListener('click', () => {
       stroke = null; pause();
-      if (generation > 0) cells = unpack(history[--generation]);
+      if (generation > 0) { generation--; cells = boardAt(generation); }
       render();
     });
     ui.reset.addEventListener('click', () => {
-      stroke = null; pause(); generation = 0; cells = unpack(history[0]); saveStart();
+      stroke = null;
+      cells = new Set(checkpoints.get(0));
+      cameraX = homeX; cameraY = homeY;
+      saveStart(true);
     });
     ui.speed.addEventListener('input', () => {
-      ui['speed-value'].textContent = `${ui.speed.value} / sec`;
+      ui['speed-value'].textContent = ui.speed.value + ' / sec';
       schedule();
     });
-    ui.clear.addEventListener('click', () => { cells.fill(0); saveStart(); });
-    ui.random.addEventListener('click', () => { cells = Uint8Array.from(cells, () => Number(Math.random() < .2)); saveStart(); });
+    ui.clear.addEventListener('click', () => { cells = new Set(); saveStart(); });
+    ui.random.addEventListener('click', () => {
+      cells = new Set();
+      for (let y = 0; y < SIZE; y++) for (let x = 0; x < SIZE; x++) {
+        if (Math.random() < .2) cells.add(cellKey(cameraX + x, cameraY + y));
+      }
+      saveStart();
+    });
     ui.seed.addEventListener('click', loadSeed);
+    ui['pan-mode'].addEventListener('click', () => {
+      panMode = !panMode;
+      ui['pan-mode'].setAttribute('aria-pressed', String(panMode));
+      render();
+    });
+    function moveView(x, y) { cameraX = x; cameraY = y; draw(); }
+    for (const [dir, dx, dy] of [['left', -25, 0], ['right', 25, 0], ['up', 0, -25], ['down', 0, 25]]) {
+      document.getElementById('view-' + dir).addEventListener('click', () => moveView(cameraX + dx, cameraY + dy));
+    }
+    document.getElementById('view-home').addEventListener('click', () => moveView(homeX, homeY));
 
     function position(event) {
       const rect = canvas.getBoundingClientRect();
-      return { x: Math.max(0, Math.min(SIZE - 1, Math.floor((event.clientX - rect.left) / rect.width * SIZE))), y: Math.max(0, Math.min(SIZE - 1, Math.floor((event.clientY - rect.top) / rect.height * SIZE))) };
+      const local = (n, length) => Math.max(0, Math.min(SIZE - 1, Math.floor(n / length * SIZE)));
+      return { x: cameraX + local(event.clientX - rect.left, rect.width), y: cameraY + local(event.clientY - rect.top, rect.height) };
     }
     function paintTo(point) {
-      // Interpolate fast pointer movements so strokes have no gaps.
       const dx = point.x - stroke.x, dy = point.y - stroke.y;
       const steps = Math.max(Math.abs(dx), Math.abs(dy), 1);
       for (let i = 0; i <= steps; i++) {
         const x = Math.round(stroke.x + dx * i / steps), y = Math.round(stroke.y + dy * i / steps);
-        cells[y * SIZE + x] = stroke.value;
+        const key = cellKey(x, y);
+        if (stroke.value) cells.add(key); else cells.delete(key);
       }
       stroke.x = point.x; stroke.y = point.y;
       saveStart();
     }
     canvas.addEventListener('pointerdown', event => {
-      if (generation !== 0 || running || event.button !== 0 || stroke) return;
+      if (event.button !== 0 || stroke) return;
       event.preventDefault(); canvas.focus({ preventScroll: true }); showKeyboardCell = false;
-      const point = position(event);
-      stroke = { ...point, value: 1 - cells[point.y * SIZE + point.x], pointerId: event.pointerId };
       canvas.setPointerCapture(event.pointerId);
-      paintTo(point);
+      if (panMode || event.shiftKey || running || generation !== 0) {
+        stroke = { pan: true, cx: cameraX, cy: cameraY, px: event.clientX, py: event.clientY, pointerId: event.pointerId };
+        canvas.style.cursor = 'grabbing';
+      } else {
+        const point = position(event);
+        stroke = { ...point, value: !cells.has(cellKey(point.x, point.y)), pointerId: event.pointerId };
+        paintTo(point);
+      }
     });
     canvas.addEventListener('pointermove', event => {
-      if (stroke && stroke.pointerId === event.pointerId && generation === 0 && !running) paintTo(position(event));
+      if (!stroke || stroke.pointerId !== event.pointerId) return;
+      if (stroke.pan) {
+        const rect = canvas.getBoundingClientRect();
+        moveView(stroke.cx - Math.round((event.clientX - stroke.px) * SIZE / rect.width),
+          stroke.cy - Math.round((event.clientY - stroke.py) * SIZE / rect.height));
+      } else if (generation === 0 && !running) paintTo(position(event));
     });
     for (const type of ['pointerup', 'pointercancel', 'lostpointercapture']) canvas.addEventListener(type, event => {
-      if (stroke?.pointerId === event.pointerId) stroke = null;
+      if (stroke?.pointerId === event.pointerId) { stroke = null; render(); }
     });
     canvas.addEventListener('keydown', event => {
-      if (generation !== 0 || running || !['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', ' '].includes(event.key)) return;
-      event.preventDefault(); showKeyboardCell = true;
-      if (event.key === 'ArrowLeft') keyboardCell.x = Math.max(0, keyboardCell.x - 1);
-      if (event.key === 'ArrowRight') keyboardCell.x = Math.min(SIZE - 1, keyboardCell.x + 1);
-      if (event.key === 'ArrowUp') keyboardCell.y = Math.max(0, keyboardCell.y - 1);
-      if (event.key === 'ArrowDown') keyboardCell.y = Math.min(SIZE - 1, keyboardCell.y + 1);
-      if (event.key === ' ') { const i = keyboardCell.y * SIZE + keyboardCell.x; cells[i] = 1 - cells[i]; saveStart(); }
-      canvas.setAttribute('aria-label', `100 by 100 Game of Life grid. Row ${keyboardCell.y + 1}, column ${keyboardCell.x + 1}, ${cells[keyboardCell.y * SIZE + keyboardCell.x] ? 'alive' : 'empty'}`);
+      const dirs = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] };
+      const delta = dirs[event.key];
+      if (!delta && event.key !== ' ') return;
+      event.preventDefault();
+      if (delta && (event.shiftKey || panMode || running || generation !== 0)) {
+        moveView(cameraX + 10 * delta[0], cameraY + 10 * delta[1]);
+        return;
+      }
+      if (panMode || running || generation !== 0) return;
+      if (!showKeyboardCell || keyboardCell.x < cameraX || keyboardCell.x >= cameraX + SIZE || keyboardCell.y < cameraY || keyboardCell.y >= cameraY + SIZE) {
+        keyboardCell = { x: cameraX + 50, y: cameraY + 50 };
+      }
+      showKeyboardCell = true;
+      if (delta) {
+        keyboardCell.x += delta[0]; keyboardCell.y += delta[1];
+        cameraX = Math.max(keyboardCell.x - SIZE + 1, Math.min(cameraX, keyboardCell.x));
+        cameraY = Math.max(keyboardCell.y - SIZE + 1, Math.min(cameraY, keyboardCell.y));
+      } else {
+        const key = cellKey(keyboardCell.x, keyboardCell.y);
+        if (cells.has(key)) cells.delete(key); else cells.add(key);
+        saveStart();
+      }
+      canvas.setAttribute('aria-label', 'Game of Life viewport. Cell ' + keyboardCell.x + ', ' + keyboardCell.y + ': ' + (cells.has(cellKey(keyboardCell.x, keyboardCell.y)) ? 'alive' : 'empty'));
       draw();
     });
     canvas.addEventListener('blur', () => { showKeyboardCell = false; draw(); });
-    loadSeed();
+
+    const circuitPorts = ['eq', 'not'];
+    let circuitActive = false;
+    let words = ['0011', '0101'];
+    // A reading belongs to its sample generation. Back hides future readings.
+    const readings = new Map();
+    const traceRows = document.getElementById('trace-rows');
+    for (let slot = 0; slot < 4; slot++) {
+      const row = traceRows.insertRow();
+      for (let col = 0; col < 5; col++) row.insertCell();
+    }
+    const byId = id => document.getElementById(id);
+    const sampleTick = (port, slot) => eqCircuit.ports[port].tick + slot * eqCircuit.period;
+    function startCircuit(a = '0011', b = '0101') {
+      if (![a, b].every(v => /^[01]{4}$/.test(v))) throw new Error('Expected four binary clock slots.');
+      cells = new Set();
+      eqCircuit.seed(a, b, (x, y) => cells.add(cellKey(x, y)));
+      words = [a, b];
+      byId('stream-a').value = a;
+      byId('stream-b').value = b;
+      circuitActive = true;
+      readings.clear();
+      cameraX = eqCircuit.view.x;
+      cameraY = eqCircuit.view.y;
+      saveStart(true);
+    }
+    function onCustomStart() {
+      circuitActive = false;
+      readings.clear();
+    }
+    function recordCircuitTick() {
+      if (!circuitActive) return;
+      for (const port of circuitPorts) {
+        const slot = (generation - sampleTick(port, 0)) / eqCircuit.period;
+        if (Number.isInteger(slot) && slot >= 0 && slot < 4) {
+          readings.set(generation, eqCircuit.read(port, cells));
+        }
+      }
+      if (generation === sampleTick('not', 3)) pause();
+    }
+    function updateCircuitUI() {
+      for (let slot = 0; slot < 4; slot++) {
+        const row = traceRows.rows[slot];
+        const outputs = circuitPorts.map(port => {
+          const t = sampleTick(port, slot);
+          if (!circuitActive) return '—';
+          if (generation >= t) return readings.get(t) ?? '—';
+          // With no live cells anywhere, every future clock slot is empty.
+          return !cells.size ? 0 : '—';
+        });
+        const values = [slot + 1, ...words.map(w => circuitActive ? w[slot] : '—'), ...outputs];
+        values.forEach((v, i) => {
+          const td = row.cells[i];
+          if (td.textContent !== String(v)) td.textContent = v;
+          if (i >= 3) {
+            td.dataset.bit = String(v);
+            td.title = circuitPorts[i - 3].toUpperCase() + ' at generation ' + sampleTick(circuitPorts[i - 3], slot);
+          }
+        });
+      }
+      const done = generation >= sampleTick('not', 3) || !cells.size;
+      const message = !circuitActive ? 'Custom world · circuit probes off' : done ? 'All four slots complete' :
+        'Next sample: generation ' + Math.min(...circuitPorts.flatMap(port =>
+          [0, 1, 2, 3].map(slot => sampleTick(port, slot)).filter(t => t > generation)));
+      if (byId('circuit-status').textContent !== message) byId('circuit-status').textContent = message;
+      byId('next-slot').disabled = !circuitActive || done;
+    }
+    function drawCircuitOverlay(ctx, originX, originY, scale) {
+      if (!circuitActive) return;
+      const px = x => (x - originX + .5) * scale;
+      const py = y => (y - originY + .5) * scale;
+      ctx.save();
+      ctx.lineWidth = 1;
+      ctx.setLineDash([3, 6]);
+      for (const [x1, y1, x2, y2] of eqCircuit.guides) {
+        ctx.strokeStyle = 'rgba(220,217,145,.5)';
+        ctx.beginPath(); ctx.moveTo(px(x1), py(y1)); ctx.lineTo(px(x2), py(y2)); ctx.stroke();
+      }
+      ctx.setLineDash([]);
+      for (const name of ['a', 'b', ...circuitPorts]) {
+        const p = eqCircuit.ports[name];
+        ctx.strokeStyle = ctx.fillStyle = name === 'eq' ? '#f7b477' : name === 'not' ? '#acd9f5' : '#a6c3ad';
+        const x = (p.x - originX) * scale, y = (p.y - originY) * scale;
+        ctx.lineWidth = 2;
+        ctx.strokeRect(x - 1, y - 1, p.width * scale + 2, p.height * scale + 2);
+        ctx.font = 'bold 13px ui-monospace, monospace';
+        if (name === 'a') ctx.fillText('A', x - 13, y + scale * 2);
+        else ctx.fillText(name.toUpperCase(), x + p.width * scale + 5, y + scale * 2);
+      }
+      ctx.restore();
+    }
+    byId('circuit-timing').textContent = 'One slot every ' + eqCircuit.period + ' generations. Dashed lines mark glider paths; boxes mark the sampling ports. All input and clock pulses start on the board.';
+    byId('load-circuit').addEventListener('click', () => startCircuit());
+    byId('circuit-form').addEventListener('submit', event => {
+      event.preventDefault();
+      startCircuit(byId('stream-a').value, byId('stream-b').value);
+    });
+    byId('next-slot').addEventListener('click', () => {
+      pause();
+      const target = [0, 1, 2, 3].map(i => sampleTick('not', i)).find(t => t > generation);
+      while (cells.size && generation < target) forward(false);
+      render();
+    });
+    startCircuit();
   </script>
 </body>
 </html>
